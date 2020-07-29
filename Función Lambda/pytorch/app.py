@@ -81,6 +81,18 @@ model = load_model()
 def sort_dict(dic):
     return {k: "%.2f%%"%dic[k] for k in sorted(dic, key=dic.get, reverse=True)}
 
+def getJsonResp(outputList, predictionList, probabilities, classes):
+    aux01 = list(zip(outputList, predictionList, probabilities))
+    aux02 = dict(zip(classes, aux01))
+    respuesta = {}
+    respuesta['probabilities'] = {k: v for k, v in aux02.items() if float(v[0]) >0}
+    respuesta['predictions'] = probabilities
+    respuesta['output'] = outputList
+    respuesta['summary'] = list(respuesta['probabilities'].keys())
+    respuesta['others'] = ordenar({k: float(v[2]) for k, v in aux02.items() if float(v[0]) <0 and float(v[2]) >0})
+    logger.info(f'Predicted class is %s' % respuesta['summary'])
+    return json.dumps(respuesta, cls=MyEncoder)
+
 def predict(input_object, model):
     """Predicts the class from an input image.
     Parameters
@@ -101,23 +113,21 @@ def predict(input_object, model):
     prediction = F.softmax(output, dim=1)
     predictionList = [ '%.2f' % float(100*elem) for elem in prediction[0].detach().numpy()]
     probabilities = [ '%.2f' % float(100*elem) for elem in prediction[0]]
-    response = {}
-    temp = list(zip(output_list,predictionList,probabilities))
-    temp2 = dict(zip(classes,temp))
-
-    response['probabilities'] = {k: v for k, v in temp2.items() if float(v[0]) >0}
-    response['predictions'] = probabilities
-    response['output'] = output_list
-    response['summary'] = list(response['probabilities'].keys())
-    response['others'] = sort_dict({k: float(v[2]) for k, v in temp2.items() if float(v[0]) <0 and float(v[2]) >0})
-    logger.info(f'Predicted class is %s' % response['summary'])
+    return getJsonResp(outputList, predictionList, probabilities, classes)
 
     return response
 
-def base64_to_bytes(base64String):
+def base64ToBytes(base64String):
     image_data = re.sub('^data:image/.+;base64,', '', base64String)
     image_bytes = io.BytesIO(base64.b64decode(image_data))
     return image_bytes
+
+class MyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer): return int(obj)
+        elif isinstance(obj, np.floating): return float(obj)
+        elif isinstance(obj, np.ndarray): return obj.tolist()
+        else: return super(MyEncoder, self).default(obj)
 
 def input_fn(request_body):
     """Pre-processes the input data from JSON to PyTorch Tensor.
@@ -132,21 +142,11 @@ def input_fn(request_body):
     logger.info("Getting input URL to a image Tensor object")
     if isinstance(request_body, str):
         request_body = json.loads(request_body)
-    img = PIL.Image.open(base64_to_bytes(request_body['url']))
+    img = PIL.Image.open(base64ToBytes(request_body['url']))
     img_tensor = preprocess(img)
     img_tensor = img_tensor.unsqueeze(0)
     return img_tensor
 
-class MyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.integer):
-            return int(obj)
-        elif isinstance(obj, np.floating):
-            return float(obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        else:
-            return super(MyEncoder, self).default(obj)
 
 
 def lambda_handler(event, context):

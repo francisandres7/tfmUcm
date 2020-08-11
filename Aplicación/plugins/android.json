@@ -1,0 +1,25 @@
+{
+  "prepare_queue": {
+    "installed": [],
+    "uninstalled": []
+  },
+  "config_munge": {
+    "files": {}
+  },
+  "installed_plugins": {
+    "cordova-plugin-whitelist": {
+      "PACKAGE_NAME": "io.cordova.test"
+    },
+    "cordova-plugin-camera": {
+      "ANDROID_SUPPORT_V4_VERSION": "27.+",
+      "PACKAGE_NAME": "io.cordova.test"
+    },
+    "cordova-plugin-file": {
+      "PACKAGE_NAME": "io.cordova.test"
+    },
+    "cordova-plugin-vibration": {
+      "PACKAGE_NAME": "io.cordova.test"
+    }
+  },
+  "dependent_plugins": {}
+}

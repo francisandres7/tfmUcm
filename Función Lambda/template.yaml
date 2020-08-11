@@ -1,29 +1,67 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Transform: 'AWS::Serverless-2016-10-31'
-Description: An AWS Serverless Specification template describing your function.
+Transform: AWS::Serverless-2016-10-31
+Description: Creates the Lambda function and API for the PyTorch inference application.
+Parameters:
+  BucketName:
+    Type: String
+    Default: tfm-bucket-fact
+    Description: Enter the name of the S3 bucket storing your PyTorch model artefacts.
+  ObjectKey:
+    Type: String
+    Default: model.tar.gz
+    Description: Enter the S3 object key path of your PyTorch model artefacts.
+  LambdaLayerArn:
+    Type: String
+    Default: arn:aws:lambda:eu-west-1:934676248949:layer:pytorchv1-py36:1
+    Description: Enter the PyTorch Lambda Layer ARN. Defaults to a public one in the
+      "us-east-1" region.
+Globals:
+  Function:
+    Timeout: 500
 Resources:
-  tfmLambdaPyTorchFunction2CZGAZW4ZY8D:
-    Type: 'AWS::Serverless::Function'
+  PyTorchFunction:
+    Type: AWS::Serverless::Function
     Properties:
+      CodeUri: s3://tfm-bucket-fact/48f65e165d2c4c8ac485aa9967faddef
       Handler: app.lambda_handler
       Runtime: python3.6
-      CodeUri: .
-      Description: ''
       MemorySize: 3008
-      Timeout: 30
-      Role: >-
-        arn:aws:iam::598823175421:role/tfmLambda-PyTorchFunctionRole-JYWLIVIYGC8J
+      Environment:
+        Variables:
+          MODEL_BUCKET:
+            Ref: BucketName
+          MODEL_KEY:
+            Ref: ObjectKey
+      Policies:
+      - S3ReadPolicy:
+          BucketName:
+            Ref: BucketName
+      Layers:
+      - Ref: LambdaLayerArn
       Events:
-        Api1:
+        PyTorch:
           Type: Api
           Properties:
             Path: /invocations
-            Method: POST
-      Environment:
-        Variables:
-          MODEL_BUCKET: tfm-bucket-fact
-          MODEL_KEY: model.tar.gz
-      Tags:
-        'lambda:createdBy': SAM
-      Layers:
-        - 'arn:aws:lambda:eu-west-1:934676248949:layer:pytorchv1-py36:2'
+            Method: post
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  PyTorchApi:
+    Description: API Gateway endpoint URL for Prod stage for PyTorch function
+    Value:
+      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/invocations/
+  PyTorchFunction:
+    Description: PyTorch Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - PyTorchFunction
+      - Arn
+  PyTorchFunctionIamRole:
+    Description: Implicit IAM Role created for PyTorch function
+    Value:
+      Fn::GetAtt:
+      - PyTorchFunctionRole
+      - Arn
